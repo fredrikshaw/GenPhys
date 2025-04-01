@@ -73,7 +73,7 @@ class Body:
                 d = np.sqrt((self.x - sun.x) ** 2 + (self.y - sun.y) ** 2)
                 solar_constant = sun.r**2 * sigma * sun.T**4 / (d**2)
                 cum_absorbed_power += (1-albedo) * solar_constant / (4*sigma)
-        self.T = cum_absorbed_power**0.25
+        self.T = cum_absorbed_power**0.25 + 30  # 30 degrees for greenhouse effect
         return
 
 
@@ -90,9 +90,23 @@ class BodySystem:
         self.coords = {}
         self.temps = {}
         self.times = np.array([0])
+        self.b_roche = False
         for body in list_of_bodies:
             self.coords[body.ID] = np.array([[body.x], [body.y]])
             self.temps[body.ID] = body.T
+
+    def check_roche_limit(self, secondary_ID):
+        self.b_roche = True
+        roche_lims = {}
+        self.secondary_ID = secondary_ID
+        for body in self.bodies:
+            if body.ID == secondary_ID:
+                secondary_r = body.r
+                secondary_m = body.m
+                break
+        for body in self.bodies:
+            if body.ID != secondary_ID:
+                self.roche_lims[body.ID] = secondary_r*(2*body.m/secondary_m)**(1/3)
 
     def time_step(self, dt):
         self.times = np.append(self.times, self.times[-1] + dt)
@@ -106,19 +120,20 @@ class BodySystem:
 
 if __name__ == "__main__":
     body_list = [
-        # Body("Earth", 5.972e24,6.371e6, 1.496e11, 0, 0, 29780, 288),
-        # Body("Sun 1", 1.989e30,6.96e8, 0, 0, 0, 0, 5778),
-        # Body("Jupiter with mass of sun", 1.989e30,6.96e8, 7.78e11, 0, 0, 1305.74, 5778),
+        Body("Earth", 5.972e24,6.371e6, 1.496e11, 0, 0, 1.3*29780, 288),
+        Body("Sun 1", 1.989e30,6.96e8, 0, 0, 0, 0, 5778),
+        # Body("Jupiter with mass of sun", 0.5*1.989e30,6.96e8, 7.78e11, 0, 0, 1305.74, 5778),
         # Body("Jupiter with mass of sun", 1.989e30,6.96e8, 7.78e11, 0, 0, 5*1305.74, 5778),
-        Body("Earth", 5.972e24,6.371e6, 1.496e11, 0, 0, -29780+10000, 288),
-        Body("Sun 1", 1.989e30,6.96e8, 0, 0, 0, 10000, 5778),
+        # Body("Earth", 5.972e24,6.371e6, 1.496e11, 0, 0, -29780+10000, 288),
+        # Body("Sun 1", 1.989e30,6.96e8, 0, 0, 0, 10000, 5778),
         # Body("Sun 1", 1.989e30, 6.96e8, 1.496e11, 0, 0, 15000, 5778),
-        Body("Sun 2", 1.989e30, 6.96e8, 9e11, 0, 0, -10000, 5778),
+        # Body("Sun 2", 1.989e30, 6.96e8, 9e11, 0, 0, -10000, 5778),
         # Body("Sun 3", 1.989e30, 6.96e8, -7.48e10, -1.295e11, 25793, -14892, 5778)
     ]
 
+    TOTAL_TIME = 3*365*24*3600
     TIME_STEP = 3600*24/5  # Time step in seconds
-    N_STEPS = 20000  # Amount of time steps
+    N_STEPS = int(np.ceil(TOTAL_TIME/TIME_STEP))  # Amount of time steps
     N_RESAMPLED = 200  # Amount of time steps to sample down to for animation
 
     solar_system = BodySystem(body_list)
@@ -128,6 +143,8 @@ if __name__ == "__main__":
     au_in_m = 1.496e11
     cmap_dict = {
         "Earth": cm.Blues,
+        "Sun": cm.Reds,
+        "Jupiter with mass of sun": cm.Reds,
         "Sun 1": cm.Oranges,
         "Sun 2": cm.Reds
     }
@@ -147,7 +164,9 @@ if __name__ == "__main__":
     colours = {
         "Earth": "blue",
         "Sun 1": "Orange",
-        "Sun 2": "Red"
+        "Sun 2": "Red",
+        "Sun": "Orange",
+        "Jupiter with mass of sun": "Red"
     }
     # Initialize scatter objects for each body
     scatters = {}
@@ -182,4 +201,5 @@ if __name__ == "__main__":
     plt.plot(solar_system.times/(3600*24), solar_system.temps["Earth"])
     plt.ylabel('Temperature of earth')
     plt.xlabel("Time [days]")
+    plt.grid()
     plt.show()
